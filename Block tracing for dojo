@@ -1,0 +1,20 @@
+DbG = [];
+(function () {
+    var gt = dojo._getText;
+    function myGetText(fname) {
+        var name = fname.match(/(\w+)\.js/);
+        if (name == null) {
+            return gt.apply(this, arguments);
+        }
+        name = name[1];
+        console.log(name, arguments);
+        txt = gt.apply(this, arguments);
+        txt = dojo.map(txt.split('\n'), function(chunk, i) {
+            var tag = name + ':' + (i+1);
+            return chunk.replace(/(\)|\s+else)\s*{/g, '$1 { DbG.push("'+tag+'");'); }).join('\n');
+        console.log(txt);
+        return txt;
+    }
+    dojo.dump = function() { return DbG; }
+    dojo._getText = myGetText;
+})();
