@@ -31,7 +31,6 @@ DbG =
                                  '$1 { DbG("'+name+'", '+(i+1)+');'); }).join('\n');
         return txt;
     }
-    dojo.dump = function() { return DbG; }
     dojo._getText = myGetText;
     return debug;
 })();
