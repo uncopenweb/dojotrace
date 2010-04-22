@@ -1,6 +1,33 @@
-// A hack to insert simple line number tracing into javascript code included with dojo.require
-// Add a URL parameter trace to invoke line-by-line printing on the console or
-// trace=silent to collect the messages in an array, you can retrieve them with uow.trace()
+/**
+ * A hack to insert simple line number tracing into javascript code included 
+ * with dojo.require. Add a script tag like:
+ *
+ * <script type="text/javascript" src="trace.js"></script>
+ *
+ * after loading dojo.js. Move the script tag even later to avoid adding 
+ * logging to uninteresting files.
+ *
+ * Add the following parameters to your URL to configure tracing:
+ *
+ * trace=[console|silent]
+ * When set to console, trace statements go to the console in real-time. When
+ * set to silent trace statements are collected in an array and can be 
+ * retrieved with uow.trace().
+ *
+ * filter=[<regex>|!<regex>]
+ * When set to a regex, only adds tracing to files matching that regex. If
+ * prefixed with !, only adds to tracing to files NOT matching the regex.
+ *
+ * slice=<int>
+ * Index to use when slicing the split of the file path on the '/' character
+ * when logging. Defaults to -1 showing the filename with no path. Set to -2,
+ * for example, to see the name of the file plus its parent folder in the
+ * trace.
+ *
+ * :requires: Dojo 1.3.2 or higher, XD or local build fine
+ * :copyright: Gary Bishop, Peter Parente 2010
+ * :license: BSD
+ **/
 dojo.provide('uow.trace');
 uow.trace =
 (function () {
