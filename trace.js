@@ -28,7 +28,6 @@ uow.trace =
     } else {
         return null;
     }
-    
     var filter;
     var neg = true;
     if(parms.filter) {
@@ -50,7 +49,7 @@ uow.trace =
         fname = fname.path || fname;
         if(neg ^ filter.test(fname) ||  // respect user filter
            fname.search('nls') > -1 ||  // avoid nls folders (@todo: improve)
-           fname.match(/(\w+)\.js$/)) { // only match Javascript files
+           fname.search(/(\w+)\.js$/) == -1) { // only match Javascript files
                return txt; 
         }
         // get the name for display
