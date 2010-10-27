@@ -31,29 +31,38 @@
 dojo.provide('uow.trace');
 uow.trace =
 (function () {
+    var func = function() {}; // nop to return below
+    
     // get the url parameters
     var parms = dojo.queryToObject(window.location.search.substring(1));
     if (typeof(parms.trace) == 'undefined') {
-        // bail if not requested
-        return null;
+        if (typeof(djConfig.trace_config) == 'undefined') {
+            // bail if not requested
+            return func;
+        } else {
+            parms = djConfig.trace_config;
+        }
     }
     
     // setup the tracing function
-    var func; // return this below
     if (parms.trace == 'silent') {
         var trace = [];
+        var limit = parms.limit || 0;
         func = function(file, line, context) {
             if (typeof(file) == 'undefined') {
                 return trace;
             }
             trace.push(file+':'+line, context);
+            if (limit) {
+                trace = trace.splice(-limit,limit);
+            }
         };
     } else if(parms.trace == 'console') {
         func = function(file, line, context) {
             console.debug(file+':'+line, context);
         };
     } else {
-        return null;
+        return func;
     }
     var filter;
     var neg = true;
