@@ -7,12 +7,15 @@
  * after loading dojo.js. Move the script tag even later to avoid adding 
  * logging to uninteresting files.
  *
- * Add the following parameters to your URL to configure tracing:
+ * Add the following parameters to your URL or djConfig.trace_config to 
+ * configure tracing:
  *
  * trace=[console|silent]
- * When set to console, trace statements go to the console in real-time. When
- * set to silent trace statements are collected in an array and can be 
- * retrieved with uow.trace().
+ * When set to 'console', trace statements go to the console in real-time.
+ * When set to 'silent' trace statements are collected in an array and can be 
+ * retrieved with uow.trace.get(). When set to 'enabled', tracing doesn't 
+ * start until uow.trace.start() is called. When ommitted, files are not
+ * annotated for tracing.
  *
  * filter=[<regex>|!<regex>]
  * When set to a regex, only adds tracing to files matching that regex. If
@@ -24,6 +27,15 @@
  * for example, to see the name of the file plus its parent folder in the
  * trace.
  *
+ * Use the following API to control tracing at runtime:
+ *
+ * uow.trace.start([mode]) - Starts tracing if it is not running yet. 
+ *   The 'mode' param can be 'console' or 'silent' and defaults to 'silent'
+ *   if not specified. The trace log reset if starting in 'silent' mode.
+ * uow.trace.stop() - Stops tracing if it is running and returns the last
+ *   silent trace log.
+ * uow.trace.get() - Gets the current silent trace log.
+ *
  * :requires: Dojo 1.3.2 or higher, XD or local build fine
  * :copyright: Gary Bishop, Peter Parente 2010
  * :license: BSD
@@ -31,39 +43,49 @@
 dojo.provide('uow.trace');
 uow.trace =
 (function () {
-    var func = function() {}; // nop to return below
+    var func, trace = [], limit;
+    var noTrace = function() {}; // nop to return below
+    var consoleTrace = function(file, line, context) {
+        console.debug(file+':'+line, context);
+    };
+    var silentTrace = function(file, line, context) {
+        trace.push(file+':'+line, context);
+        if (limit) {
+            trace = trace.splice(-limit,limit);
+        }
+    };
     
     // get the url parameters
     var parms = dojo.queryToObject(window.location.search.substring(1));
-    if (typeof(parms.trace) == 'undefined') {
-        if (typeof(djConfig.trace_config) == 'undefined') {
-            // bail if not requested
-            return func;
-        } else {
-            parms = djConfig.trace_config;
-        }
+    if (parms.trace === undefined) {
+        parms = djConfig.trace_config;
+    }
+    if(parms === undefined) {
+        parms = {};
     }
     
-    // setup the tracing function
+    // setup the initial tracing function
     if (parms.trace == 'silent') {
-        var trace = [];
-        var limit = parms.limit || 0;
-        func = function(file, line, context) {
-            if (typeof(file) == 'undefined') {
-                return trace;
-            }
-            trace.push(file+':'+line, context);
-            if (limit) {
-                trace = trace.splice(-limit,limit);
-            }
-        };
+        func = silentTrace;
     } else if(parms.trace == 'console') {
-        func = function(file, line, context) {
-            console.debug(file+':'+line, context);
-        };
+        func = consoleTrace;
+    } else if(parms.trace == 'enabled') {
+        func = noTrace;
     } else {
-        return func;
+        // return disabled trace API
+        return {
+            _err : new Error('tracing disabled'),
+            log : function() { throw this._err; },
+            start : function() { throw this._err; },
+            get : function() { throw this._err; },
+            stop : function() { throw this._err; }
+        };
     }
+
+    // pull out the limit
+    var limit = parms.limit || 0;
+
+    // decide what files to annotate or not
     var filter;
     var neg = true;
     if(parms.filter) {
@@ -112,12 +134,40 @@ uow.trace =
                 context = '';
             }
             return line.replace(/(\)|\Welse)(\s*\{)\s*$/g,
-                                '$1$2 uow.trace("'+name+'",'+(i+1)+',"'+context+'");');
+                                '$1$2 uow.trace.log("'+name+'",'+(i+1)+',"'+context+'");');
         }).join('\n');
         return txt;
     }
     // replace their function with mine
     dojo._getText = myGetText;
-    // return my trace function
-    return func;
+
+    // return trace API
+    return {
+        log : func,
+        start : function(mode) {
+            if(this.log !== noTrace) {
+                throw new Error('trace already running');
+            }
+            if(mode == 'silent' || mode === undefined) {
+                // default to silent
+                trace = [];
+                this.log = silentTrace;
+            } else if(mode == 'console') {
+                trace = [];
+                this.log = consoleTrace;
+            } else {
+                throw new Error('trace mode must be silent or console');
+            }
+        },
+        get : function() {
+            return trace;
+        },
+        stop : function() {
+            if(this.log === noTrace) {
+                throw new Error('trace not running');
+            }
+            this.log = noTrace;
+            return trace;
+        }
+    };
 })();
