@@ -29,11 +29,16 @@
  *
  * Use the following API to control tracing at runtime:
  *
- * uow.trace.start([mode]) - Starts tracing if it is not running yet. 
- *   The 'mode' param can be 'console' or 'silent' and defaults to 'silent'
- *   if not specified. The trace log reset if starting in 'silent' mode.
+ * uow.trace.start([logger]) - Starts tracing if it is not running yet. 
+ *   The 'logger' param can be 'console' or 'silent' and defaults to 'silent'
+ *   if not specified. Or, the 'logger' can be a callback function of the form
+ *     logger(filename, line, context, scope, arguments) -> string
+ *   where filename, line, and context are strings, scope is the value of 
+ *   'this' in the logged scope, and 'arguments' are the args passed to the
+ *   function in the called scope (or undefined if not in a function). Any
+ *   value returned from the callback is added to the trace log array.
  * uow.trace.stop() - Stops tracing if it is running and returns the last
- *   silent trace log.
+ *   trace log array.
  * uow.trace.get() - Gets the current silent trace log.
  *
  * :requires: Dojo 1.3.2 or higher, XD or local build fine
@@ -49,10 +54,7 @@ uow.trace =
         console.debug(file+':'+line, context);
     };
     var silentTrace = function(file, line, context) {
-        trace.push(file+':'+line, context);
-        if (limit) {
-            trace = trace.splice(-limit,limit);
-        }
+        return file+':'+line, context;
     };
     
     // get the url parameters
@@ -134,7 +136,7 @@ uow.trace =
                 context = '';
             }
             return line.replace(/(\)|\Welse)(\s*\{)\s*$/g,
-                                '$1$2 uow.trace.log("'+name+'",'+(i+1)+',"'+context+'");');
+                                '$1$2 uow.trace.log("'+name+'",'+(i+1)+',"'+context+'", this, arguments);');
         }).join('\n');
         return txt;
     }
@@ -143,30 +145,38 @@ uow.trace =
 
     // return trace API
     return {
-        log : func,
-        start : function(mode) {
-            if(this.log !== noTrace) {
+        logger : func,
+        log : function() {
+            var rv = this.logger.apply(this, arguments);
+            if(rv !== undefined) {
+                trace.push(rv);
+                if (limit) {
+                    trace = trace.splice(-limit,limit);
+                }
+            }
+        },
+        start : function(logger) {
+            if(this.logger !== noTrace) {
                 throw new Error('trace already running');
             }
-            if(mode == 'silent' || mode === undefined) {
+            trace = [];
+            if(logger == 'silent' || logger === undefined) {
                 // default to silent
-                trace = [];
-                this.log = silentTrace;
-            } else if(mode == 'console') {
-                trace = [];
-                this.log = consoleTrace;
+                this.logger = silentTrace;
+            } else if(logger == 'console') {
+                this.logger = consoleTrace;
             } else {
-                throw new Error('trace mode must be silent or console');
+                this.logger = logger;
             }
         },
         get : function() {
             return trace;
         },
         stop : function() {
-            if(this.log === noTrace) {
+            if(this.logger === noTrace) {
                 throw new Error('trace not running');
             }
-            this.log = noTrace;
+            this.logger = noTrace;
             return trace;
         }
     };
