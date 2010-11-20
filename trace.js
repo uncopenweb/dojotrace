@@ -78,9 +78,9 @@ uow.trace =
         return {
             _err : new Error('tracing disabled'),
             log : function() { throw this._err; },
-            start : function() { throw this._err; },
-            get : function() { throw this._err; },
-            stop : function() { throw this._err; }
+            start : function() {  },
+            get : function() { return trace; },
+            stop : function() { return trace; }
         };
     }
 
